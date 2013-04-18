@@ -1,0 +1,4 @@
+Questions to ask Splunk support:
+
+* Export Searches: is there always EXACTLY ONE SearchResult with isPreview() == false ?
+* How to disable preview SearchResults all together in export searches? Or change their frequency?

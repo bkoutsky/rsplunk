@@ -21,7 +21,6 @@ class Splunk {
     }
     
     public String [] getApps() {
-
         java.util.Collection<Application> ac = service.getApplications().values();
         String [] titles = new String[ac.size()];
 
@@ -33,8 +32,13 @@ class Splunk {
         return titles;
     }
 
+
     private Service service;
     
+
+    public Service getService() {
+        return service;
+    }
 
     public static void main(String [] args) {
         Splunk splunk = new Splunk(
@@ -42,10 +46,37 @@ class Splunk {
                   args[1], 
                   args[2],
                   8089);
-        String [] apps = splunk.getApps();
-        for (String s : apps) {
-            System.out.println(s);
+        
+//        String [] apps = splunk.getApps();
+//        for (String s : apps) {
+//            System.out.println(s);
+//        }
+        
+        System.out.println("Starting search");
+        Search srch =  new Search(splunk, "search index=gdc host=cl-pdw*| stats count by host", "-10min@min", "now");
+
+        while (true) {
+            if (!srch.columnize()) continue;
+            
+            String [] ss = srch.getColumnString(0);
+            System.out.print("\033[2J\033[H"); 
+            System.out.println("---");
+            for (String s: ss) {
+                System.out.println(s);
+            }
+            
+            System.out.println("===");
+            try {
+                Thread.sleep(500);
+            } catch (java.lang.InterruptedException e) {
+                // Woooohoooo!!!
+            }
+
+            if(!srch.isRunning()) break;
         }
+
+        System.out.println("DONE.");
+
     }
 
 }

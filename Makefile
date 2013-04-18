@@ -2,7 +2,7 @@ JAR_SPLUNK = splunk-1.1.jar
 CLASSPATH = .:$(JAR_SPLUNK)
 
 JAVAC = javac
-JAVAC_FLAGS = -g -cp $(CLASSPATH)
+JAVAC_FLAGS = -Xlint -g -cp $(CLASSPATH)
 
 .SUFFIXES: .java .class
 
@@ -10,7 +10,8 @@ JAVAC_FLAGS = -g -cp $(CLASSPATH)
 	$(JAVAC) $(JAVAC_FLAGS) $*.java
 
 JAVA_SRC = \
-        Splunk.java
+        Splunk.java \
+		Search.java
 
 all: build
 
@@ -26,4 +27,4 @@ jrun: build
 
 
 rrun: build
-	R rsplunk.R
+	Rscript rsplunk.R
