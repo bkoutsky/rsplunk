@@ -1,4 +1,7 @@
 Questions to ask Splunk support:
 
-* Export Searches: is there always EXACTLY ONE SearchResult with isPreview() == false ?
+* Transforming Export Searches: is there always EXACTLY ONE SearchResult with isPreview() == false ?
+* Non-transforming Export Searches: same question. Docs talks about multiple SearchResults, but so far, I always saw only one. Is that just my luck? Or is there always EXACTLY ONE SearchResult for non-transforming export searches too?
+** If more than one SearchResult can appear for non-tr. exp. searches,, will all of them have the same getFields()?
 * How to disable preview SearchResults all together in export searches? Or change their frequency?
+* How to reliably exclude system fields (_*, except for _time) from export search? "fields + keep1,keep

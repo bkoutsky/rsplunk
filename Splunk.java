@@ -53,21 +53,21 @@ class Splunk {
 //        }
         
         System.out.println("Starting search");
-        Search srch =  new Search(splunk, "search index=gdc host=cl-pdw*| stats count by host", "-10min@min", "now");
+        Search srch =  new Search(splunk, "search index=gdc | stats count ", "-10min@min", "now");
 
         while (true) {
             if (!srch.columnize()) continue;
+
             
-            String [] ss = srch.getColumnString(0);
-            System.out.print("\033[2J\033[H"); 
+            //System.out.print("\033[2J\033[H"); 
             System.out.println("---");
-            for (String s: ss) {
-                System.out.println(s);
+
+            for (String s: srch.getFieldNames()) {
+                System.out.println("field: " + s);
             }
-            
             System.out.println("===");
             try {
-                Thread.sleep(500);
+                Thread.sleep(200);
             } catch (java.lang.InterruptedException e) {
                 // Woooohoooo!!!
             }

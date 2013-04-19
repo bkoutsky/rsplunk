@@ -37,15 +37,21 @@ class Search extends Thread {
     final static Pattern reInt = Pattern.compile("^\\d+$");
     // TODO: handle exp. notation
     final static Pattern reDouble = Pattern.compile("^\\d+\\.\\d+$");
+    final static Pattern reTimestamp = Pattern.compile("^\\d{4}-\\d{1,2}-\\d{1,2} \\d{1,2}:\\d{1,2}:\\d{1,2}\\.\\d+? [A-Z]+$");
+
     class Column {
         String name;
         Object [] values;
-        int bestType;
+        int type;
+        boolean onlyNulls;
+        boolean onlyTimestamps;
 
         Column(String name, int size) {
-            this.bestType = INT;
+            this.type = INT;
             this.name = name;
             values = new Object[size];
+            onlyNulls = true;
+            onlyTimestamps = true;
         }
 
         int size() {
@@ -58,29 +64,71 @@ class Search extends Thread {
             String s = event.get(name);
             Object o;
 
+            if (s == null) {
+                values[index] = null;
+                return;
+            }
+
+            onlyNulls = false;
+
+            if (reTimestamp.matcher(s).matches()) {
+                type = STRING;
+                values[index] = s;
+                return;
+            }
+
+            onlyTimestamps = false;
+
             if (reInt.matcher(s).matches()) {
-                bestType = Math.min(bestType, INT);
+                type = Math.min(type, INT);
                 o = new Integer(s);
             }
             else if (reDouble.matcher(s).matches()) {
-                bestType = Math.min(bestType, DOUBLE);
+                type = Math.min(type, DOUBLE);
                 o = new Double(s);
             }
             else {
-                bestType = STRING;
+                type = STRING;
                 o = s;
             }
 
             values[index] = o;
         }
 
-        String[] asStrings() {
-            String [] result = new String[values.length];
+        Object [] values() {
+            Object [] result = new Object[values.length];
             int i=0;
             for(Object o: values) {
-                result[i++] = (String)o;
+                result[i++] = o;
             }
             return result;
+        }
+
+        String getName() {
+            return this.name;
+        }
+
+        String getSubType() {
+            return onlyTimestamps ? "timestamps" : "none";
+        }
+        
+        String getDesc() {
+            String desc;
+            switch(this.type) {
+                case INT:
+                    desc = "I intValue";
+                    break;
+                case DOUBLE:
+                    desc = "D doubleValue";
+                    break;
+                case STRING:
+                    desc = "Ljava/lang/String; toString";
+                    break;
+                default:
+                    throw new Error("Unexpected type " + type);
+            }
+            desc += " " + getSubType();
+            return desc;
         }
     }
 
@@ -138,6 +186,7 @@ class Search extends Thread {
     }
 
     private void readResults() throws java.io.IOException {
+        boolean lastWasPreview = true;
         for (SearchResults searchResults : this.multiResultsReader)
         {
             //searchResults.isPreview()
@@ -155,7 +204,7 @@ class Search extends Thread {
                 //    Thus, while receiving previews, each time new one arrives, replace old one with new one.
                 // -- Then send one or more SearchResults with .isPreview()==false, each containing part of the result.
                 //    Thus, while receiving finals, append each one to old ones.
-                // - Non-transofrming searches 
+                // - Non-transforming searches 
                 // -- Do not send preview at all.
                 // -- Results are spread over multiple SearchResults
                 //    Thus, these SearchResults should be concetanated together.
@@ -164,13 +213,15 @@ class Search extends Thread {
                 // SearchResult (the last one). But to err on the side of caution, I'll assume there may be multiple final
                 // that should be concated together. For the preview results, I'll assume that each SearchResult is "complete".
                 
-                if (searchResults.isPreview()) {
+                if (searchResults.isPreview() || lastWasPreview) {
                     this.results.clear();
                     this.fields.clear();
+                    lastWasPreview = searchResults.isPreview();
                 }
 
                 this.results.addAll(newResults);
                 this.fields.addAll(searchResults.getFields());
+                this.columnsDone = false;
             }
         }
         this.multiResultsReader.close();
@@ -180,7 +231,6 @@ class Search extends Thread {
     public boolean columnize() {
         ArrayList<Event> snapResults;
         TreeSet<String> snapFields;
-
         synchronized(this) {
             snapResults = new ArrayList<Event>(this.results);
             snapFields = new TreeSet<String>(this.fields);
@@ -200,19 +250,41 @@ class Search extends Thread {
                 }
             }
         }
+        // TODO: remove debug code
+        //for (String s: snapField) {
+        //    System.out.println("field: " + s);
+        //}
 
-        this.columns = new Column[1];
-        this.columns[0] = new Column("host", snapResults.size());
-        int i = 0;
+        this.columns = new Column[snapFields.size()];
+        int column = 0;
+        for (String name: snapFields) {
+            this.columns[column++] = new Column(name, snapResults.size());
+        }
+        
+        int row = 0;
         for (Event e: snapResults) {
-            this.columns[0].add(e, i);
-
-            i++;
+            column = 0;
+            for (String name: snapFields) {
+                this.columns[column++].add(e, row);
+            }
+            row++;
         }
         return true;
     }
 
-    public String [] getColumnString(int c) {
-        return columns[c].asStrings();
+    public Object [] getColumnValues(int c) {
+        return columns[c].values();
+    }
+
+    public String getColumnDesc(int c) {
+        return this.columns[c].getDesc();
+    }
+
+    public String[] getFieldNames() {
+        String [] names = new String [this.columns.length];
+        for (int i = 0; i < columns.length; i++) {
+            names[i] = columns[i].getName();
+        }
+        return names;
     }
 }    
